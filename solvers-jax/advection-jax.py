@@ -36,8 +36,6 @@ def RK3(f, y0, dt, num_steps):
 
     return y
 
-    return y
-
 def create_advection_opeartor(dx, n):
     
     @jit
