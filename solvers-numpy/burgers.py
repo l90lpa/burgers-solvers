@@ -2,9 +2,10 @@ import numpy as np
 from scipy.linalg import toeplitz
 from scipy import pi
 import matplotlib.pyplot as plt
-from ppm_advection import ppmlin_step_advection  
+from ppm_advection import ppmlin_step_advection, ppmunlimited_step_advection  
 from rkm import RK4_step
 from diff_operators import create_diffusion_opeartor
+from math import ceil, floor, pi
 
 def solver(nu, u_initial, dx, num_points, dt, num_steps):
     u = np.copy(u_initial)
@@ -17,7 +18,8 @@ def solver(nu, u_initial, dx, num_points, dt, num_steps):
     u_new = np.empty((num_points,), dtype=np.float64)
 
     for i in range(num_steps):
-        u_new = u + dt * u * ppmlin_step_advection(u,1.0,dt,dx,num_points) + dt * RK4_step(nu_D, u, dt)
+        # u_new = u + dt * u * ppmlin_step_advection(u,1.0,dt,dx,num_points) + dt * RK4_step(nu_D, u, dt)
+        u_new = u + dt * ppmlin_step_advection(u,1.0,dt,dx,num_points) #+ dt * RK4_step(nu_D, u, dt)
         u=u_new
     
     return u
@@ -44,7 +46,7 @@ def initial_condition(x,N,option):
         
     if (option==1):
         for i in range(N):
-            u0[i]=0.5*(1.0+sin(2.0*pi*x[i]))
+            u0[i]=0.5*(1.0+np.sin(2.0*pi*x[i]))
 
     elif (option==2):
         for i in range(N):
@@ -73,11 +75,11 @@ if __name__ == "__main__":
     domain_length = 1.0
     num_points = 64
     dx = domain_length / num_points     # Space step size
-    c = 1.0                             # Courant number
+    c = 0.1                             # Courant number
     dt = c * dx                         # Time step size
     num_steps = ceil(0.5 * (1.0/(dt)))
     nu = 0.005                          # Diffusion coefficient
-    ic_option = 1                       # Chosen initial condition
+    ic_option = 2                       # Chosen initial condition
 
     print("domain_length = ", domain_length)
     print("num_points = ", num_points)

@@ -16,7 +16,7 @@ def solver(v, nu, eps, u_initial, dx, num_points, dt, num_steps, solver_option):
             return nu * D(u)
         
         for i in range(num_steps):
-            u = u + dt * ppmlin_step_advection(u,v,dt,dx,num_points) + dt * RK3_step(f, u, dt)
+            u = u + u * dt * ppmlin_step_advection(u,v,dt,dx,num_points) #+ dt * RK3_step(f, u, dt)
 
     elif solver_option == 2:
         A = create_advection_opeartor(dx, num_points)
@@ -100,13 +100,13 @@ if __name__ == "__main__":
     num_points = 128
     dx = domain_length / num_points     # Space step size
     c = 0.1                             # Courant number
-    dt = c * dx                       # Time step size
-    # dt = (2.5/4) * dx ** 2              # Time step size
+    # dt = c * dx                       # Time step size
+    dt = (2.5/4) * dx ** 2              # Time step size
     num_steps = ceil(1.0 * (1.0/(dt)))
     v = 1.0                             # Advection coefficient
     nu = 0.0005                         # Diffusion coefficient
     eps = 0.0000005                     # 4th-order diffusion coefficient
-    solver_option = 1                   # Choose between solver schemes
+    solver_option = 2                   # Choose between solver schemes
     ic_option = 2                       # Chosen initial condition
 
     print("domain_length = ", domain_length)
