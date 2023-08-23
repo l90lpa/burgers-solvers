@@ -1,6 +1,6 @@
-# Burger's Solvers
+# PDE Solvers and Automatic Differentiation
 
-This project contains a collection of solver for the 1D viscid Burger's equation, written in Python using various libraries
+This project contains a collection of solvers various PDEs, for experimenting with automatic differentiation
 
 ## Dependencies
 
