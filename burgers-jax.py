@@ -1,9 +1,10 @@
-import jax.numpy as np
-from jax.scipy.linalg import toeplitz
-from scipy import pi
-from jax import vjp
-from jax import jit
+from jax import config, jit
+config.update("jax_enable_x64", True)
+import jax.numpy as jnp
+from math import pi
 from functools import partial
+import time
+import numpy as np
 import matplotlib.pyplot as plt
 
 def create_ab3(y1, y2):
@@ -24,18 +25,33 @@ def create_ab3(y1, y2):
 
 @partial(jit, static_argnames=['f'])
 def RK4_step(f, y, dt):
-    k1 = dt * f(y)
-    k2 = dt * f(y + 0.5 * k1)
-    k3 = dt * f(y + 0.5 * k2)
-    k4 = dt * f(y + k3)
+    k1 = f(y)
+    k2 = f(y + dt * 0.5 * k1)
+    k3 = f(y + dt * 0.5 * k2)
+    k4 = f(y + dt * k3)
 
-    return y + (k1 + 2 * k2 + 2 * k3 + k4) / 6
+    return (1.0 / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
 
 def RK4(f, y0, dt, num_steps):
     y = y0
 
-    for i in range(num_steps):
-        y = RK4_step(f, y, dt)
+    start = time.perf_counter()
+
+    y = y + dt * RK4_step(f, y, dt)
+    
+    end = time.perf_counter()
+    print("First step: ", end - start)
+
+    start = time.perf_counter()
+    
+    for i in range(1, num_steps):
+        y = y + dt * RK4_step(f, y, dt)
+    
+    end = time.perf_counter()
+    
+    if num_steps > 1:
+        print("Steps [1, ", num_steps, "): ", end - start)
+        print("Step average [1, ", num_steps, "): ", (end - start) / (num_steps - 1))
 
     return y
 
@@ -44,7 +60,7 @@ def create_diffusion_opeartor(dx, n):
     @jit
     def diffusion_op(u):
         dxdx = dx ** 2
-        u_new = np.empty_like(u)
+        u_new = jnp.empty_like(u)
         u_new = u_new.at[0].set((u[n-1] -2 * u[0] + u[1]) / dxdx)
         for i in range(1, n-1):
             u_new = u_new.at[i].set((u[i-1] - 2 * u[i] + u[i+1]) / dxdx)
@@ -58,7 +74,7 @@ def create_advection_opeartor(dx, n):
     @jit
     def advection_op(u):
         dx2 = dx * 2
-        u_new = np.empty_like(u)
+        u_new = jnp.empty_like(u)
         u_new = u_new.at[0].set((u[1] - u[n-1]) / dx2)
         for i in range(1, n-1):
             u_new = u_new.at[i].set((u[i+1] - u[i-1]) / dx2)
@@ -73,11 +89,10 @@ def solver(u_initial, nu, dx, num_points, dt, num_steps):
 
     @jit
     def f(u):
-        return nu * D(u) - u * A(u)
+        return - u * A(u) + nu * D(u)
+
+    return RK4(f, u_initial, dt, num_steps)
     
-    u_end = RK4(f, u_initial, dt, num_steps)
-    
-    return u_end
 
 # Example usage
 if __name__ == "__main__":
@@ -87,15 +102,16 @@ if __name__ == "__main__":
     dx = domain_length / (num_points - 1)
     nu = 0.1
     dt = 0.001  # Time step size
+    num_steps = 3141
 
     # Create the initial velocity profile (e.g., a sinusoidal profile)
-    x = np.linspace(0, domain_length, num_points)
-    u_initial = np.sin(x)
+    x = jnp.linspace(0, domain_length - dx, num_points)
+    u_initial = jnp.sin(x)
 
+    solver_partial = lambda u0 : solver(u0, nu, dx, num_points, dt, num_steps)
+    
     # Solve the Burgers' equation
-    num_steps = 3140
-    u_final = np.empty_like(u_initial)
-    u_final = solver(u_initial, nu, dx, num_points, dt, num_steps)
+    u_final = solver_partial(u_initial)
 
     # Plot the results
     plt.plot(x, u_initial, label="Initial Velocity Profile")
@@ -105,8 +121,5 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    # solver_partial = partial(solver, nu=nu, dx=dx, num_points=num_points, dt=dt, num_steps=num_steps)
 
-    # du_initial = np.zeros_like(u_initial)
-    # du_initial = du_initial.at[0].set(1)
-    # primals, solver_vjp = vjp(solver_partial, u_initial)
+
