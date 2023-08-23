@@ -23,7 +23,7 @@ def advection_op(dx, u):
 
 @gtscript.function
 def f(nu, dx, u):
-    return nu * diffusion_op(dx, u) - u[0, 0, 0] * advection_op(dx, u)
+    return -u[0, 0, 0] * advection_op(dx, u) + nu * diffusion_op(dx, u)
 
 @gtscript.stencil(backend=backend, rebuild=rebuild, **backend_opts)
 def RK_stage(y: gtscript.Field[dtype], 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     u_initial[-1] = 0.0
 
     # Solve the Burgers' equation
-    num_steps = 3100
+    num_steps = 6140
     u_final = solver(nu, u_initial, dx, num_points, dt, num_steps)
 
     # # Plot the results
