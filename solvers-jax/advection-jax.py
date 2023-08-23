@@ -7,7 +7,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-@partial(jit, static_argnames=['f'])
+@partial(jit, static_argnames=['f', 'dt'])
 def RK3_step(f, y, dt):
     k1 = f(y)
     k2 = f(y + dt * 0.5 * k1)
@@ -18,21 +18,25 @@ def RK3_step(f, y, dt):
 def RK3(f, y0, dt, num_steps):
     y = y0
 
+    def step(y):
+        return y + dt * RK3_step(f, y, dt)
+    
+    print("Started compilation ...")
     start = time.perf_counter()
 
-    y = y + dt * RK3_step(f, y, dt)
+    step_model = jit(step).lower(y).compile()
     
     end = time.perf_counter()
-    print("First step: ", end - start)
+    print("Compilation time: ", end - start)
 
+    print("Started steps ...")
     start = time.perf_counter()
     
-    for i in range(1, num_steps):
-        y = y + dt * RK3_step(f, y, dt)
+    for i in range(num_steps):
+        y = step_model(y)
 
-    if num_steps > 1:
-        print("Steps [1, ", num_steps, "): ", end - start)
-        print("Step average [1, ", num_steps, "): ", (end - start) / (num_steps - 1))
+    print("Steps [0, ", num_steps, ") total time: ", end - start)
+    print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
 
     return y
 
