@@ -3,6 +3,7 @@ config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from math import pi, ceil
 from functools import partial
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,9 +17,24 @@ def RK3_step(f, y, dt):
 
 def RK3(f, y0, dt, num_steps):
     y = y0
+
+    start = time.perf_counter()
+
+    y = y + dt * RK3_step(f, y, dt)
     
-    for i in range(num_steps):
+    end = time.perf_counter()
+    print("First step: ", end - start)
+
+    start = time.perf_counter()
+    
+    for i in range(1, num_steps):
         y = y + dt * RK3_step(f, y, dt)
+
+    if num_steps > 1:
+        print("Steps [1, ", num_steps, "): ", end - start)
+        print("Step average [1, ", num_steps, "): ", (end - start) / (num_steps - 1))
+
+    return y
 
     return y
 
