@@ -16,7 +16,7 @@ def solver(v, nu, eps, u_initial, dx, num_points, dt, num_steps, solver_option):
             return nu * D(u)
         
         for i in range(num_steps):
-            u = u + u * dt * ppmlin_step_advection(u,v,dt,dx,num_points) #+ dt * RK3_step(f, u, dt)
+            u = u + v * dt * ppmlin_step_advection(u,v,dt,dx,num_points) #+ dt * RK3_step(f, u, dt)
 
     elif solver_option == 2:
         A = create_advection_opeartor(dx, num_points)
