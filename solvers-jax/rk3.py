@@ -2,6 +2,7 @@ from jax import vjp, jvp, jit
 import jax.numpy as jnp
 from functools import partial
 import time
+from checkpoint import reverseLoopCheckpointed
 
 @partial(jit, static_argnames=['f', 'dt'])
 def RK3_step(f, y, dt):
@@ -63,5 +64,37 @@ def RK3_tlm(f, y0, dy0, dt, num_steps):
     end = time.perf_counter()
     print("Steps [0, ", num_steps, ") total time: ", end - start)
     print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
+
+    return y, dy
+
+def RK3_adm(f, y0, dyN, dt, num_steps):
+    y = y0
+    dy = dyN
+
+    @jit
+    def step_model(y):
+        return y + dt * RK3_step(f, y, dt)
+    
+    print("Started compilation ...")
+    start = time.perf_counter()
+
+    @jit
+    def step_adm(y, dy):
+        y_dummy, vjp_fn = vjp(step_model, y)
+        return vjp_fn(dy)
+
+    
+    end = time.perf_counter()
+    print("Compliation time: ", end - start)
+
+    print("Started steps...")
+    start = time.perf_counter()
+
+    dy = reverseLoopCheckpointed(step_model, y, step_adm, dy, 8, num_steps)
+
+    end = time.perf_counter()
+    print("Steps [0, ", num_steps, ") total time: ", end - start)
+    print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
+
 
     return y, dy
