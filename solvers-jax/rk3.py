@@ -15,26 +15,12 @@ def RK3_step(f, y, dt):
 def RK3(f, y0, dt, num_steps):
     y = y0
 
-    def step(y):
+    @jit
+    def step_model(y):
         return y + dt * RK3_step(f, y, dt)
-    
-    print("Started compilation ...")
-    start = time.perf_counter()
-
-    step_model = jit(step).lower(y).compile()
-    
-    end = time.perf_counter()
-    print("Compilation time: ", end - start)
-
-    print("Started steps ...")
-    start = time.perf_counter()
-    
+        
     for i in range(num_steps):
         y = step_model(y)
-
-    end = time.perf_counter()
-    print("Steps [0, ", num_steps, ") total time: ", end - start)
-    print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
 
     return y
 
@@ -42,59 +28,49 @@ def RK3_tlm(f, y0, dy0, dt, num_steps):
     y = y0
     dy = dy0
 
-    def step(y):
+    @jit
+    def step_model(y):
         return y + dt * RK3_step(f, y, dt)
-    
-    print("Started compilation ...")
-    start = time.perf_counter()
 
-    step_model = jit(step).lower(y).compile()
-    step_tlm = jit(lambda y, dy: jvp(step, (y,), (dy,))).lower(y, dy).compile()
-    
-    end = time.perf_counter()
-    print("Compliation time: ", end - start)
-
-    print("Started steps ...")
-    start = time.perf_counter()
 
     for i in range(num_steps):
-        y_dummy, dy = step_tlm(y, dy)
-        y = step_model(y)
-
-    end = time.perf_counter()
-    print("Steps [0, ", num_steps, ") total time: ", end - start)
-    print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
+        y, dy = jvp(step_model, (y,), (dy,))
 
     return y, dy
 
-def RK3_adm(f, y0, dyN, dt, num_steps):
+def RK3_adm(f, y0, DyN, dt, num_steps):
+    y_cache = jnp.zeros((num_steps, jnp.size(y0)), dtype=y0.dtype)
     y = y0
-    dy = dyN
 
     @jit
     def step_model(y):
         return y + dt * RK3_step(f, y, dt)
+
+    for i in range(num_steps):
+        y_cache = y_cache.at[i,:].set(y)
+        y = step_model(y)
+
+    Dy = DyN
     
-    print("Started compilation ...")
-    start = time.perf_counter()
+    for i in range(num_steps-1, -1, -1):
+        _, vjp_fn = vjp(step_model, y_cache[i,:])
+        Dy = vjp_fn(Dy)[0]
 
-    @jit
-    def step_adm(y, dy):
-        y_dummy, vjp_fn = vjp(step_model, y)
-        return vjp_fn(dy)
+    return y, Dy
 
-    
-    end = time.perf_counter()
-    print("Compliation time: ", end - start)
+# def RK3_adm_2(f, y0, dyN, dt, num_steps):
+#     y = y0
+#     dy = dyN
 
-    print("Started steps...")
-    start = time.perf_counter()
+#     @jit
+#     def step_model(y):
+#         return y + dt * RK3_step(f, y, dt)
 
-    dy = reverseLoopCheckpointed(step_model, y, step_adm, dy, 8, num_steps)
+#     @jit
+#     def step_adm(y, dy):
+#         y_dummy, vjp_fn = vjp(step_model, y)
+#         return vjp_fn(dy)[0]
 
-    end = time.perf_counter()
-    print("Steps [0, ", num_steps, ") total time: ", end - start)
-    print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
+#     dy = reverseLoopCheckpointed(step_model, y, step_adm, dy, 8, num_steps)
 
-
-    return y, dy
+#     return y, dy
