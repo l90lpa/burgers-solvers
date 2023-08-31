@@ -85,15 +85,12 @@ if __name__ == "__main__":
 
     num_steps = 8
 
-    @jit
     def m(u):
         return solver_rk3(u, v, dx, num_points, dt, num_steps)
 
-    # @jit
     def TLM(u, du):
         return solver_rk3_tlm(u, du, v, dx, num_points, dt, num_steps)
 
-    # @jit
     def ADM(u, Dv):
         return solver_rk3_adm(u, Dv, v, dx, num_points, dt, num_steps)
 
