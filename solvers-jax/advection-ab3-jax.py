@@ -21,16 +21,6 @@ def create_advection_opeartor(dx, n):
     
     return advection_op
 
-def solver_rk3(u_initial, v, dx, num_points, dt, num_steps):
-    A = create_advection_opeartor(dx, num_points)
-
-    @jit
-    def f(u):
-        return - v * A(u)
-    
-    return RK3(f, u_initial, dt, num_steps)
-
-
 def solver_ab3(u_initial, v, dx, num_points, dt, num_steps):
     A = create_advection_opeartor(dx, num_points)
 
@@ -96,10 +86,10 @@ def solver_ab3_adm(u_initial, Dv, v, dx, num_points, dt, num_steps):
     Dy1 += vjp_euler_step(Dy0)[0]
     _, vjp_euler_step = vjp(euler_step, y2)
     Dy2 += vjp_euler_step(Dy1)[0]
-    Du_intial = Dy2
+    Du_initial = Dy2
 
-    return Du_intial
-    
+    return Du_initial
+  
 
 # Example usage
 if __name__ == "__main__":
