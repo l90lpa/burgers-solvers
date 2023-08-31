@@ -1,4 +1,4 @@
-from jax import config, jit
+from jax import config, jit, jvp, vjp
 config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from math import pi, ceil
@@ -6,111 +6,51 @@ from functools import partial
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-
-# If pred == True then `1` else if pred == False then `-1`
-def one_or_minusone(pred):
-    return (2 * pred) - 1
-
-# If pred == True then `a`, else if pred == False then `b`
-def convex_combination(pred, a, b):
-    return (pred *  a) + ((1-pred) * b)
+from ppm import ppmlin_step_advection
 
 @jit
-def ppmlin_step_advection(z,v,dt,dx):
-
-    # subroutine for Lin scheme in 1D
-    N = jnp.size(z)
-    flux = jnp.empty((N,), dtype=np.float64)
-    deltaz = jnp.empty((N,),dtype=np.float64)
-    deltazmax = jnp.empty((N,),dtype=np.float64)
-    deltazmin = jnp.empty((N,),dtype=np.float64)
-    deltazmono = jnp.empty((N,),dtype=np.float64)
-    zplus = jnp.empty((N,),dtype=np.float64)
-    zminus = jnp.empty((N,),dtype=np.float64)
-    dl = jnp.empty((N,),dtype=np.float64)
-    dr = jnp.empty((N,),dtype=np.float64)
-    zminusnew = jnp.empty((N,),dtype=np.float64)
-    zplusnew = jnp.empty((N,),dtype=np.float64)
-    z6 = jnp.empty((N,),dtype=np.float64)
-
-    # flux to left 
-
-    for i in range(N):
-        ai=(i+1) % N
-        bi=(i-1) % N
-        
-        deltaz = deltaz.at[i].set(0.25*(z[ai] - z[bi]))
-
-        deltazmin = deltazmin.at[i].set(z[i]-jnp.min(jnp.array([z[bi],z[i],z[ai]])))
-        deltazmax = deltazmax.at[i].set(jnp.max(jnp.array([z[bi],z[i],z[ai]]))-z[i])
-
-            
-    for i in range(N):            
-        minpart=jnp.min(jnp.array([abs(deltaz[i]),deltazmin[i],deltazmax[i]]))
-
-        deltazmono = deltazmono.at[i].set(one_or_minusone(deltaz[i] >= 0.0)*abs(minpart))
-                
-    
-    # Approx of z at the cell edge
-
-    for i in range(N):
-        bi=(i-1) % N
-            
-        zminus = zminus.at[i].set(0.5*(z[bi]+z[i])+(1.0/3.0)*(deltazmono[bi]-deltazmono[i]))
-    
-    
-    # continuous at cell edges
-
-    for i in range(N):
-        ai=(i+1) % N
-            
-        zplus = zplus.at[i].set(zminus[ai])
-    
-    
-    # limit cell edges
-          
-    for i in range(N):
-           
-        dl = dl.at[i].set(jnp.min(jnp.array([abs(2.0*deltazmono[i]),abs(zminus[i]-z[i])])))
-        dr = dr.at[i].set(jnp.min(jnp.array([abs(2.0*deltazmono[i]),abs(zplus[i]-z[i])])))
-
-        dl = dl.at[i].set(one_or_minusone(2.0*deltazmono[i] >= 0.0)*abs(dl[i]))
-        dr = dr.at[i].set(one_or_minusone(2.0*deltazmono[i] >= 0.0)*abs(dr[i]))
-            
-        zminusnew = zminusnew.at[i].set(z[i] - dl[i])
-        zplusnew = zplusnew.at[i].set(z[i] + dr[i])
-    
-    
-    for i in range(N):           
-        zminus = zminus.at[i].set(zminusnew[i])
-        zplus = zplus.at[i].set(zplusnew[i])
-    
-        z6 = z6.at[i].set(3.0*(dl[i]-dr[i]))
-    
-    
-    # calculate flux based on velocity direction
-
-    pred = (v >= 0.0)
-    for i in range(N):
-        bi=(i-1) % N
-                    
-        flux = flux.at[i].set(convex_combination(pred, zplus[bi], zminus[i]) - one_or_minusone(pred) * 0.5*(abs(v)*dt/dx)*( convex_combination(pred, zplus[bi]-zminus[bi], zplus[i]-zminus[i]) - one_or_minusone(pred) * convex_combination(pred, z6[bi], z6[i])*(1.0-(2.0/3.0)*(abs(v)*dt/dx)) ))
+def step(u):
+    return u + v * dt * ppmlin_step_advection(u,v,dt,dx)
 
 
-    z_new = jnp.empty((N,), dtype=np.float64)
-    for i in range(N):
-        z_new = z_new.at[i].set(-(1.0/dx) * (flux[(i+1)%N] - flux[i]))
+def solver_ppm(u_initial, v, dx, num_points, dt, num_steps):
+    u = jnp.copy(u_initial)
 
-    return z_new
-
-
-def solver(u_initial, v, dx, num_points, dt, num_steps):
-    u = np.copy(u_initial)
-    
     for i in range(num_steps):
-        u = u + v * dt * ppmlin_step_advection(u,v,dt,dx)
+        u = step(u)
 
     return u
+
+
+def solver_ppm_tlm(u_initial, du_initial, v, dx, num_points, dt, num_steps):
+    u = jnp.copy(u_initial)
+    
+    du = du_initial
+
+    for i in range(num_steps):
+        u, du = jvp(step, (u,), (du,))
+
+    return du
+
+
+def solver_ppm_adm(u_initial, Du, v, dx, num_points, dt, num_steps):
+    u_cache = jnp.zeros((num_steps, jnp.size(u_initial)), dtype=u_initial.dtype)
+
+    u = jnp.copy(u_initial)
+
+    for i in range(num_steps):
+        u_cache = u_cache.at[i,:].set(u)
+        u = step(u)
+
+    Du_ = Du
+
+    for i in range(num_steps-1,-1,-1):
+        _, vjp_fn = vjp(step, u_cache[i,:])
+        Du_ = vjp_fn(Du_)[0]
+
+    Du_initial = Du_
+
+    return Du_initial
     
 
 # Example usage
@@ -128,7 +68,7 @@ if __name__ == "__main__":
     x = jnp.linspace(0, domain_length - dx, num_points)
     u_initial = jnp.sin((2*pi/domain_length) * x)
 
-    solver_partial = lambda u0 : solver(u0, v, dx, num_points, dt, num_steps)
+    solver_partial = lambda u0 : solver_ppm(u0, v, dx, num_points, dt, num_steps)
     
     # Run solver
     u_final = solver_partial(u_initial)
@@ -140,6 +80,93 @@ if __name__ == "__main__":
     plt.ylabel("Solution (u)")
     plt.legend()
     plt.show()
+
+    num_steps = 8
+
+    # @jit
+    def m(u):
+        return solver_ppm(u, v, dx, num_points, dt, num_steps)
+
+    # @jit
+    def TLM(u, du):
+        return solver_ppm_tlm(u, du, v, dx, num_points, dt, num_steps)
+
+    # @jit
+    def ADM(u, Dv):
+        return solver_ppm_adm(u, Dv, v, dx, num_points, dt, num_steps)
+
+    def testTLMLinearity(TLM, tol):
+        rng = np.random.default_rng(12345)
+        N = 100
+        u0 = rng.random((N,), dtype=np.float64)
+        du = rng.random((N,), dtype=np.float64)
+        dv = np.array(TLM(jnp.array(u0), jnp.array(du)))
+        dv2 = np.array(TLM(jnp.array(u0), jnp.array(2.0*du)))
+        absolute_error = np.linalg.norm(dv2 - 2.0*dv)
+        return absolute_error < tol, absolute_error
+
+    def testTLMApprox(m, TLM, tol):
+        rng = np.random.default_rng(12345)
+        N = 100
+        u0 = rng.random((N,), dtype=np.float64)
+        v0 = m(jnp.array(u0))
+
+        du = rng.random((N,), dtype=np.float64)
+        dv = np.array(TLM(jnp.array(u0), jnp.array(du)))
+        
+        scale = 1.0
+
+        absolute_errors = []
+        relavite_errors = []
+        for i in range(8):
+            v1 = np.array(m(jnp.array(u0 + (scale * du))))
+            absolute_error = np.linalg.norm((scale * dv) - (v1 - v0))
+            absolute_errors.append(absolute_error)
+            relative_error = absolute_error / np.linalg.norm(v1 - v0)
+            relavite_errors.append(relative_error)
+            scale /= 10.0
+
+        # print(absolute_errors)
+        # print(relavite_errors)
+        min_relative_error = np.min(relavite_errors)
+
+        return min_relative_error < tol, min_relative_error
+
+    def testADMApprox(TLM, ADM, tol):
+        rng = np.random.default_rng(12345)
+        N = 100
+        u0 = rng.random((N,), dtype=np.float64)
+        du =  rng.random((N,), dtype=np.float64)
+
+        dv = np.array(TLM(jnp.array(u0), jnp.array(du)))
+
+        M = jnp.size(dv)
+        Dv =  np.random.rand(M)
+        Du = np.array(ADM(jnp.array(u0), jnp.array(Dv))).flatten()
+        
+        absolute_error = np.abs(np.dot(dv, Dv) - np.dot(du, Du))
+        return absolute_error < tol, absolute_error
+
+    print("Test TLM Linearity:")
+    success, absolute_error = testTLMLinearity(TLM, 1.0e-13)
+    print("success = ", success, ", absolute_error = ", absolute_error)
+
+    print("Test TLM Approximation:")
+    success, relative_error = testTLMApprox(m, TLM, 1.0e-13)
+    print("success = ", success, ", relative error = ", relative_error)
+
+    print("Test ADM Approximation:")
+    success, absolute_error = testADMApprox(TLM, ADM, 1.0e-13)
+    print("success = ", success, ", relative absolute_error = ", absolute_error)
+
+
+
+
+
+
+
+
+
 
 
 
