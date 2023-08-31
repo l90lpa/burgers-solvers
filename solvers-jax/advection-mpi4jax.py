@@ -7,50 +7,11 @@ import time
 import matplotlib.pyplot as plt
 from mpi4py import MPI
 import mpi4jax
-
+from rk3 import RK3
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
 rank = comm.Get_rank()
-
-@partial(jit, static_argnames=['f', 'dt'])
-def RK3_step(f, y, dt):
-    k1 = f(y)
-    k2 = f(y + dt * 0.5 * k1)
-    k3 = f(y + dt * 0.75 * k2)
-
-    return (1.0 / 9.0) * (2.0 * k1 + 3.0 * k2 + 4.0 * k3)
-
-def RK3(f, y0, dt, num_steps):
-    y = y0
-
-    def step(y):
-        y = y + dt * RK3_step(f, y, dt)
-        return y
-    
-    if rank == 0:
-        print("Started compilation ...")
-        start = time.perf_counter()
-
-    step_model = jit(step).lower(y).compile()
-    
-    if rank == 0:
-        end = time.perf_counter()
-        print("Compilation time: ", end - start)
-
-    if rank == 0:
-        print("Started steps ...")
-        start = time.perf_counter()
-    
-    for i in range(num_steps):
-        y = step_model(y)
-        
-    if rank == 0:
-        end = time.perf_counter()
-        print("Steps [0, ", num_steps, ") total time: ", end - start)
-        print("Steps [0, ", num_steps, ") average time: ", (end - start) / num_steps)
-
-    return y
 
 @jit
 def advection_op(u):
@@ -61,6 +22,7 @@ def advection_op(u):
         u_new = u_new.at[i].set((u[i+1] - u[i-1]) / dx2)
     return u_new
 
+@jit
 def update_halo(y, token = None):
     sendbufl = y[ 1]
     recvbufr = y[ 1]
