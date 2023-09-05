@@ -60,11 +60,7 @@ def create_diffusion_opeartor(dx, n):
     @jit
     def diffusion_op(u):
         dxdx = dx ** 2
-        u_new = jnp.empty_like(u)
-        u_new = u_new.at[0].set((u[n-1] -2 * u[0] + u[1]) / dxdx)
-        for i in range(1, n-1):
-            u_new = u_new.at[i].set((u[i-1] - 2 * u[i] + u[i+1]) / dxdx)
-        u_new = u_new.at[n-1].set((u[n-2] - 2 * u[n-1] + u[0]) / dxdx)
+        u_new = (jnp.roll(u, -1) - 2.0 * u + jnp.roll(u, 1)) / dxdx
         return u_new
     
     return diffusion_op
@@ -74,11 +70,7 @@ def create_advection_opeartor(dx, n):
     @jit
     def advection_op(u):
         dx2 = dx * 2
-        u_new = jnp.empty_like(u)
-        u_new = u_new.at[0].set((u[1] - u[n-1]) / dx2)
-        for i in range(1, n-1):
-            u_new = u_new.at[i].set((u[i+1] - u[i-1]) / dx2)
-        u_new = u_new.at[n-1].set((u[0] - u[n-2]) / dx2)
+        u_new = (jnp.roll(u, -1) - jnp.roll(u, 1)) / dx2
         return u_new
     
     return advection_op
