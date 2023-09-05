@@ -7,21 +7,6 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-def create_ab3(y1, y2):
-    def AB3(f, y0, dt, num_steps):
-        y_prev = [y1, y2]
-        y = y0
-
-        for i in range(num_steps):
-            y_new = y + (dt / 12) * (23 * f(y) - 16 * f(y_prev[0]) + 5 * f(y_prev[1]))
-
-            y_prev[1] = y_prev[0]
-            y_prev[0] = y
-            y = y_new
-
-        return y
-
-    return AB3
 
 @partial(jit, static_argnames=['f'])
 def RK4_step(f, y, dt):
