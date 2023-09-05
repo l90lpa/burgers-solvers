@@ -13,87 +13,47 @@ def convex_combination(pred, a, b):
 def ppmlin_step_advection(z,v,dt,dx):
 
     # subroutine for Lin scheme in 1D
-    N = jnp.size(z)
-    flux = jnp.empty((N,), dtype=z.dtype)
-    deltaz = jnp.empty((N,),dtype=z.dtype)
-    deltazmax = jnp.empty((N,),dtype=z.dtype)
-    deltazmin = jnp.empty((N,),dtype=z.dtype)
-    deltazmono = jnp.empty((N,),dtype=z.dtype)
-    zplus = jnp.empty((N,),dtype=z.dtype)
-    zminus = jnp.empty((N,),dtype=z.dtype)
-    dl = jnp.empty((N,),dtype=z.dtype)
-    dr = jnp.empty((N,),dtype=z.dtype)
-    zminusnew = jnp.empty((N,),dtype=z.dtype)
-    zplusnew = jnp.empty((N,),dtype=z.dtype)
-    z6 = jnp.empty((N,),dtype=z.dtype)
 
     # flux to left 
 
-    for i in range(N):
-        ai=(i+1) % N
-        bi=(i-1) % N
-        
-        deltaz = deltaz.at[i].set(0.25*(z[ai] - z[bi]))
+    deltaz = 0.25 * (jnp.roll(z, -1) - jnp.roll(z, 1))
 
-        deltazmin = deltazmin.at[i].set(z[i]-jnp.min(jnp.array([z[bi],z[i],z[ai]])))
-        deltazmax = deltazmax.at[i].set(jnp.max(jnp.array([z[bi],z[i],z[ai]]))-z[i])
-
-            
-    for i in range(N):            
-        minpart=jnp.min(jnp.array([abs(deltaz[i]),deltazmin[i],deltazmax[i]]))
-
-        deltazmono = deltazmono.at[i].set(one_or_minusone(deltaz[i] >= 0.0)*abs(minpart))
+    deltazmin = z - jnp.minimum(jnp.minimum(jnp.roll(z, 1), jnp.roll(z, -1)), z)
+    deltazmax = jnp.maximum(jnp.maximum(jnp.roll(z, 1), jnp.roll(z, -1)), z) - z
+  
+    minpart = jnp.minimum(jnp.minimum(deltazmin, deltazmax), jnp.abs(deltaz))
+    deltazmono = one_or_minusone(jnp.greater_equal(deltaz, 0.0)) * abs(minpart)
                 
     
     # Approx of z at the cell edge
 
-    for i in range(N):
-        bi=(i-1) % N
-            
-        zminus = zminus.at[i].set(0.5*(z[bi]+z[i])+(1.0/3.0)*(deltazmono[bi]-deltazmono[i]))
-    
+    zminus = 0.5 * (jnp.roll(z, 1) + z) + (1.0/3.0) * (jnp.roll(deltazmono, 1) - deltazmono)
     
     # continuous at cell edges
 
-    for i in range(N):
-        ai=(i+1) % N
-            
-        zplus = zplus.at[i].set(zminus[ai])
-    
+    zplus = jnp.roll(zminus, -1)
     
     # limit cell edges
           
-    for i in range(N):
-           
-        dl = dl.at[i].set(jnp.min(jnp.array([abs(2.0*deltazmono[i]),abs(zminus[i]-z[i])])))
-        dr = dr.at[i].set(jnp.min(jnp.array([abs(2.0*deltazmono[i]),abs(zplus[i]-z[i])])))
+    dl = jnp.minimum(2.0 * jnp.abs(deltazmono), jnp.abs(zminus - z))
+    dr = jnp.minimum(2.0 * jnp.abs(deltazmono), jnp.abs(zplus - z))
+    dl = one_or_minusone(jnp.greater_equal(deltazmono, 0.0)) * jnp.abs(dl)
+    dr = one_or_minusone(jnp.greater_equal(deltazmono, 0.0)) * jnp.abs(dr)    
+    zminusnew = z - dl
+    zplusnew = z + dr
+    
 
-        dl = dl.at[i].set(one_or_minusone(2.0*deltazmono[i] >= 0.0)*abs(dl[i]))
-        dr = dr.at[i].set(one_or_minusone(2.0*deltazmono[i] >= 0.0)*abs(dr[i]))
-            
-        zminusnew = zminusnew.at[i].set(z[i] - dl[i])
-        zplusnew = zplusnew.at[i].set(z[i] + dr[i])
-    
-    
-    for i in range(N):           
-        zminus = zminus.at[i].set(zminusnew[i])
-        zplus = zplus.at[i].set(zplusnew[i])
-    
-        z6 = z6.at[i].set(3.0*(dl[i]-dr[i]))
-    
-    
+
+    zminus = zminusnew
+    zplus = zplusnew
+    z6 = 3.0 * (dl - dr)
+        
     # calculate flux based on velocity direction
 
     pred = (v >= 0.0)
-    for i in range(N):
-        bi=(i-1) % N
-                    
-        flux = flux.at[i].set(convex_combination(pred, zplus[bi], zminus[i]) - one_or_minusone(pred) * 0.5*(abs(v)*dt/dx)*( convex_combination(pred, zplus[bi]-zminus[bi], zplus[i]-zminus[i]) - one_or_minusone(pred) * convex_combination(pred, z6[bi], z6[i])*(1.0-(2.0/3.0)*(abs(v)*dt/dx)) ))
+    flux = convex_combination(pred, jnp.roll(zplus, 1), zminus) - one_or_minusone(pred) * 0.5*(abs(v)*dt/dx)*( convex_combination(pred, jnp.roll(zplus - zminus, 1), zplus - zminus) - one_or_minusone(pred) * convex_combination(pred, jnp.roll(z6, 1), z6)*(1.0-(2.0/3.0)*(abs(v)*dt/dx)) )
 
-
-    z_new = jnp.empty((N,), dtype=z.dtype)
-    for i in range(N):
-        z_new = z_new.at[i].set(-(1.0/dx) * (flux[(i+1)%N] - flux[i]))
+    z_new = -(1.0/dx) * (jnp.roll(flux, -1) - flux)
 
     return z_new
 
