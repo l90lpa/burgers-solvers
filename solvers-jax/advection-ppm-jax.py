@@ -83,15 +83,12 @@ if __name__ == "__main__":
 
     num_steps = 8
 
-    # @jit
     def m(u):
         return solver_ppm(u, v, dx, num_points, dt, num_steps)
 
-    # @jit
     def TLM(u, du):
         return solver_ppm_tlm(u, du, v, dx, num_points, dt, num_steps)
 
-    # @jit
     def ADM(u, Dv):
         return solver_ppm_adm(u, Dv, v, dx, num_points, dt, num_steps)
 
