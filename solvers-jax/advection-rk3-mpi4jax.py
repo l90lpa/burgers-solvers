@@ -19,8 +19,7 @@ def advection_op(u):
     n = jnp.size(u)
     dx2 = dx * 2
     u_new = jnp.empty_like(u)
-    for i in range(1, n-1):
-        u_new = u_new.at[i].set((u[i+1] - u[i-1]) / dx2)
+    u_new = u_new.at[1:n-1].set((u[2:] - u[:-2]) / dx2)
     return u_new
 
 @jit
