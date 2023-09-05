@@ -32,7 +32,6 @@ def RK3_tlm(f, y0, dy0, dt, num_steps):
     def step_model(y):
         return y + dt * RK3_step(f, y, dt)
 
-
     for i in range(num_steps):
         y, dy = jvp(step_model, (y,), (dy,))
 
