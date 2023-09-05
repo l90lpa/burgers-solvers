@@ -95,20 +95,22 @@ if __name__ == "__main__":
         return solver_rk3_adm(u, Dv, v, dx, num_points, dt, num_steps)
 
     def testTLMLinearity(TLM, tol):
+        rng = np.random.default_rng(12345)
         N = 100
-        u0 = np.random.rand(N)
-        du = np.random.rand(N)
+        u0 = rng.random((N,), dtype=np.float64)
+        du = rng.random((N,), dtype=np.float64)
         dv = np.array(TLM(jnp.array(u0), jnp.array(du)))
         dv2 = np.array(TLM(jnp.array(u0), jnp.array(2.0*du)))
         absolute_error = np.linalg.norm(dv2 - 2.0*dv)
         return absolute_error < tol, absolute_error
 
     def testTLMApprox(m, TLM, tol):
+        rng = np.random.default_rng(12345)
         N = 100
-        u0 = np.random.rand(N)
+        u0 = rng.random((N,), dtype=np.float64)
         v0 = m(jnp.array(u0))
 
-        du = np.random.rand(N)
+        du = rng.random((N,), dtype=np.float64)
         dv = np.array(TLM(jnp.array(u0), jnp.array(du)))
         
         scale = 1.0
@@ -130,14 +132,15 @@ if __name__ == "__main__":
         return min_relative_error < tol, min_relative_error
 
     def testADMApprox(TLM, ADM, tol):
+        rng = np.random.default_rng(12345)
         N = 100
-        u0 = np.random.rand(N)
-        du =  np.random.rand(N)
+        u0 = rng.random((N,), dtype=np.float64)
+        du =  rng.random((N,), dtype=np.float64)
 
         dv = np.array(TLM(jnp.array(u0), jnp.array(du)))
 
         M = jnp.size(dv)
-        Dv =  np.random.rand(M)
+        Dv = rng.random((M,), dtype=np.float64)
         Du = np.array(ADM(jnp.array(u0), jnp.array(Dv))).flatten()
         
         absolute_error = np.abs(np.dot(dv, Dv) - np.dot(du, Du))
