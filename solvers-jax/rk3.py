@@ -56,20 +56,3 @@ def RK3_adm(f, y0, DyN, dt, num_steps):
         Dy = vjp_fn(Dy)[0]
 
     return y, Dy
-
-# def RK3_adm_2(f, y0, dyN, dt, num_steps):
-#     y = y0
-#     dy = dyN
-
-#     @jit
-#     def step_model(y):
-#         return y + dt * RK3_step(f, y, dt)
-
-#     @jit
-#     def step_adm(y, dy):
-#         y_dummy, vjp_fn = vjp(step_model, y)
-#         return vjp_fn(dy)[0]
-
-#     dy = reverseLoopCheckpointed(step_model, y, step_adm, dy, 8, num_steps)
-
-#     return y, dy
