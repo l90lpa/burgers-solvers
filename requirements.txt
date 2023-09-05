@@ -7,6 +7,7 @@ click==8.1.6
 cmake==3.27.0
 contourpy==1.1.0
 cycler==0.11.0
+Cython==3.0.2
 cytoolz==0.12.2
 deepdiff==6.3.1
 devtools==0.11.0
@@ -24,6 +25,8 @@ Mako==1.2.4
 MarkupSafe==2.1.3
 matplotlib==3.7.2
 ml-dtypes==0.2.0
+mpi4jax @ git+https://github.com/l90lpa/mpi4jax.git@9b5fbea69cc93c1e5aca97320f6820f9dd5289bb
+mpi4py==3.1.4
 mypy-extensions==1.0.0
 ninja==1.11.1
 numpy==1.25.1
