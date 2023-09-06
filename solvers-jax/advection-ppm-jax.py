@@ -23,17 +23,26 @@ def solver_ppm(u_initial, v, dx, num_points, dt, num_steps):
 
 
 def solver_ppm_tlm(u_initial, du_initial, v, dx, num_points, dt, num_steps):
-    u = jnp.copy(u_initial)
-    
+    jit_jvp = jit(lambda f, x, dx: jvp(f, x, dx), static_argnames=['f'])
+    jvp_step = jit_jvp.lower(step, (u_initial,), (du_initial,)).compile()
+
+    u = u_initial
     du = du_initial
 
     for i in range(num_steps):
-        u, du = jvp(step, (u,), (du,))
+        u, du = jvp_step((u,), (du,))
 
     return du
 
 
 def solver_ppm_adm(u_initial, Du, v, dx, num_points, dt, num_steps):
+    def vjp_wrapper(f, primals, cotangents):
+        primals, vjp_f = vjp(f, primals)
+        cotangents = vjp_f((cotangents))[0]
+        return primals, cotangents
+    jit_vjp = jit(vjp_wrapper, static_argnames=['f'])
+    vjp_step = jit_vjp.lower(step, u_initial, Du).compile()
+
     u_cache = jnp.zeros((num_steps, jnp.size(u_initial)), dtype=u_initial.dtype)
 
     u = jnp.copy(u_initial)
@@ -45,8 +54,7 @@ def solver_ppm_adm(u_initial, Du, v, dx, num_points, dt, num_steps):
     Du_ = Du
 
     for i in range(num_steps-1,-1,-1):
-        _, vjp_fn = vjp(step, u_cache[i,:])
-        Du_ = vjp_fn(Du_)[0]
+        _, Du_ = vjp_step(u_cache[i,:], Du_)
 
     Du_initial = Du_
 

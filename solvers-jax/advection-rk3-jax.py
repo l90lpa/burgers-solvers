@@ -6,7 +6,6 @@ from functools import partial
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-from checkpoint import reverseLoopCheckpointed
 from rk3 import *
 
 def create_advection_opeartor(dx, n):
