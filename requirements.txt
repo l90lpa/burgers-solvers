@@ -37,8 +37,10 @@ packaging==23.1
 pathspec==0.11.2
 Pillow==10.0.0
 platformdirs==3.10.0
+psutil==5.9.5
 pybind11==2.11.1
 pyparsing==3.0.9
+pyperf==2.6.1
 PyQt5==5.15.9
 PyQt5-Qt5==5.15.2
 PyQt5-sip==12.12.2
