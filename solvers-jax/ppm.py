@@ -1,4 +1,4 @@
-from jax import jit, jvp, vjp
+from jax import jit
 import jax.numpy as jnp
 
 # If pred == True then `1` else if pred == False then `-1`

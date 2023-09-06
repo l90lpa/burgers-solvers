@@ -2,8 +2,6 @@ from jax import config, jit, jvp, vjp
 config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from math import pi, ceil
-from functools import partial
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 from ppm import ppmlin_step_advection

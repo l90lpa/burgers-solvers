@@ -2,8 +2,6 @@ from jax import config, vjp, jvp, jit
 config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from math import pi, ceil
-from functools import partial
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 from rk3 import *

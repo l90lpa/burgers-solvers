@@ -3,8 +3,6 @@ config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import numpy as np
 from math import pi, ceil
-from functools import partial
-import time
 import matplotlib.pyplot as plt
 from mpi4py import MPI
 import mpi4jax

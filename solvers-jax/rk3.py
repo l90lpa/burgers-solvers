@@ -1,8 +1,6 @@
 from jax import vjp, jvp, jit
 import jax.numpy as jnp
 from functools import partial
-import time
-from checkpoint import reverseLoopCheckpointed
 
 @partial(jit, static_argnames=['f', 'dt'])
 def RK3_step(f, y, dt):

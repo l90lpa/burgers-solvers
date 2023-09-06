@@ -4,8 +4,7 @@ import jax.numpy as jnp
 from math import pi, ceil
 import numpy as np
 import matplotlib.pyplot as plt
-from rk3 import *
-from ab3 import *
+from ab3 import AB3, AB3_tlm, AB3_adm
 
 def create_advection_opeartor(dx, n):
     
